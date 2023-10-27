@@ -26,13 +26,15 @@ with avg_by_sallers as (
         COALESCE(FLOOR(AVG(s.quantity * p.price)), 0) as average_income
     from
         employees e
-    left join sales s
+    inner join sales s
         on e.employee_id = s.sales_person_id
-    left join products p
+    inner join products p
         on s.product_id = p.product_id
     group by e.first_name || ' '  || e.last_name
 )
-select *
+select
+    name,
+    average_income
 from avg_by_sallers
 where average_income < (select AVG(average_income) from avg_by_sallers)
 order by average_income;
