@@ -10,12 +10,12 @@ select
     COUNT(s.sales_id) as operations,
     FLOOR(SUM(s.quantity * p.price)) as income
 from employees e
-    left join sales s
+    inner join sales s
         on e.employee_id = s.sales_person_id
-    left join products p
+    inner join products p
         on s.product_id = p.product_id
 group by e.first_name || ' '  || e.last_name
-order by income desc nulls last  
+order by income desc  
 limit 10;
 
 -- Запрос возвращает информацию о продавцах, чья средняя выручка за сделку меньше средней выручки за сделку по всем продавцам.
@@ -64,3 +64,58 @@ select
     income
 from tab_before_sort
 order by weekday_num, name;
+
+-- Запрос возвращает количество покупателей в разных возрастных группах: 16-25, 26-40 и 40+.
+-- Итоговая таблица отсортирована по возрастным группам.
+select
+    (case
+    when age between 16 and 25 then '16-25'
+    when age between 26 and 40 then '26-40'
+    when age > 40 then '40+'
+    end) as age_category,
+    COUNT(customer_id)
+from customers
+group by (case
+    when age between 16 and 25 then '16-25'
+    when age between 26 and 40 then '26-40'
+    when age > 40 then '40+'
+    end)
+order by age_category;
+
+-- Запрос возвращает данные по количеству уникальных покупателей и выручке, которую они принесли.
+-- Сгруппировано по дате, которая представлена в числовом виде ГОД-МЕСЯЦ
+-- Итоговая таблица отсортирована по дате по возрастанию.
+select
+    TO_CHAR(s.sale_date,'YYYY-MM') as date,
+    COUNT(s.customer_id) as total_customers,
+    FLOOR(SUM(s.quantity * p.price)) as income
+from sales s
+    inner join products p
+        on s.product_id = p.product_id
+group by TO_CHAR(s.sale_date,'YYYY-MM')
+order by date;
+
+-- Запрос возвращает информацию о покупателях, первая покупка которых была в ходе проведения акций (акционные товары отпускали со стоимостью равной 0).
+-- Итоговая таблица отсортирована по id покупателя.
+with promo_sales as (
+    select DISTINCT on (s.customer_id)
+        s.customer_id,
+        c.first_name ||' '|| c.last_name as customer,
+        MIN(s.sale_date) over (order by s.customer_id) as sale_date,
+        e.first_name ||' '|| e.last_name as seller
+    from sales s
+        inner join products p
+            on s.product_id = p.product_id
+        inner join customers c
+            on s.customer_id = c.customer_id
+        inner join employees e
+            on s.sales_person_id = e.employee_id
+    where p.price = 0
+    order by s.customer_id
+)
+
+select
+    customer,
+    sale_date,
+    seller
+from promo_sales;
