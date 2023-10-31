@@ -8,7 +8,7 @@ from customers c;
 select
     e.first_name || ' '  || e.last_name  as name,
     COUNT(s.sales_id) as operations,
-    FLOOR(SUM(s.quantity * p.price)) as income
+    ROUND(SUM(s.quantity * p.price)) as income
 from employees e
     inner join sales s
         on e.employee_id = s.sales_person_id
@@ -23,7 +23,7 @@ limit 10;
 with avg_by_sallers as (
     select
         e.first_name || ' '  || e.last_name  as name,
-        COALESCE(FLOOR(AVG(s.quantity * p.price)), 0) as average_income
+        ROUND(AVG(s.quantity * p.price)) as average_income
     from
         employees e
     inner join sales s
@@ -47,7 +47,7 @@ with tab_before_sort AS(
         e.first_name || ' ' || e.last_name as name,
         TO_CHAR(s.sale_date, 'ID') as weekday_num,
         TO_CHAR(s.sale_date, 'day') as weekday,
-        FLOOR(SUM(s.quantity * p.price)) as income
+        ROUND(SUM(s.quantity * p.price)) as income
     from employees e
         inner join sales s
             on e.employee_id = s.sales_person_id
@@ -87,8 +87,8 @@ order by age_category;
 -- Итоговая таблица отсортирована по дате по возрастанию.
 select
     TO_CHAR(s.sale_date,'YYYY-MM') as date,
-    COUNT(s.customer_id) as total_customers,
-    FLOOR(SUM(s.quantity * p.price)) as income
+    COUNT(distinct s.customer_id) as total_customers,
+    ROUND(SUM(s.quantity * p.price)) as income
 from sales s
     inner join products p
         on s.product_id = p.product_id
@@ -98,24 +98,34 @@ order by date;
 -- Запрос возвращает информацию о покупателях, первая покупка которых была в ходе проведения акций (акционные товары отпускали со стоимостью равной 0).
 -- Итоговая таблица отсортирована по id покупателя.
 with promo_sales as (
-    select DISTINCT on (s.customer_id)
+    select
         s.customer_id,
         c.first_name ||' '|| c.last_name as customer,
-        MIN(s.sale_date) over (order by s.customer_id) as sale_date,
-        e.first_name ||' '|| e.last_name as seller
+        MIN(s.sale_date) as sale_date
     from sales s
         inner join products p
             on s.product_id = p.product_id
         inner join customers c
             on s.customer_id = c.customer_id
-        inner join employees e
-            on s.sales_person_id = e.employee_id
     where p.price = 0
+    group by
+        s.customer_id,
+        c.first_name ||' '|| c.last_name
     order by s.customer_id
 )
 
 select
-    customer,
-    sale_date,
-    seller
-from promo_sales;
+    ps.customer,
+    ps.sale_date,
+    e.first_name ||' '|| e.last_name as seller
+from promo_sales ps
+    inner join sales s
+        on ps.customer_id = s.customer_id
+        and ps.sale_date = s.sale_date
+    inner join employees e
+        on s.sales_person_id = e.employee_id
+group by
+    ps.customer,
+    ps.sale_date,
+    e.first_name ||' '|| e.last_name
+    order by customer;
